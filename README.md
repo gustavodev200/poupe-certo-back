@@ -1,4 +1,51 @@
-# workspace-agents
+# poupe-certo-back
+
+API do Poupe Certo — NestJS 12 + Prisma 7 sobre o Postgres do Supabase, login
+só com Google via Supabase Auth (o Nest valida o JWT via JWKS; nunca faz login).
+Consumida por [`poupe-certo-front`](../poupe-certo-front). Deploy: Vercel.
+
+## Rodando local
+
+```bash
+npm install                  # roda prisma generate no postinstall
+cp .env.example .env         # preencher senhas/host do pooler (ver comentários)
+npm run prisma:migrate:deploy
+npm run start:dev            # http://localhost:3333
+```
+
+Documentação interativa da API (Swagger/OpenAPI): `http://localhost:3333/docs`
+(ligada por padrão — desligue em produção pública com `SWAGGER_ENABLED=false`
+se não quiser expor o shape das rotas).
+
+Rotas públicas: `GET /health`, `GET /markets`, `GET /products/search`,
+`GET /products/:ean`, `GET /leaderboard`. Rotas autenticadas (Bearer do
+Supabase): `GET /users/me(/stats|/contributions)`, cadastro/reporte/confirmação
+de produto e preço. Rotas de moderação (Bearer + `profiles.is_operator`):
+`/moderation/*`. Contrato completo em
+[`specs/002-catalogo-precos-comunidade/contracts/api.md`](specs/002-catalogo-precos-comunidade/contracts/api.md).
+
+Especificação, plano, tarefas, revisão de segurança e code review de cada
+feature: [`specs/001-login-social-com/`](specs/001-login-social-com/) (login),
+[`specs/002-catalogo-precos-comunidade/`](specs/002-catalogo-precos-comunidade/)
+(catálogo de preços, mercados, moderação, gamificação/ranking).
+
+### Configuração manual única no Supabase
+
+1. Authentication → Providers → Google: Client ID/Secret do Google Cloud Console.
+2. Authentication → URL Configuration: Site URL do front e Redirect URLs
+   `http://localhost:3000/auth/callback` + `https://<front-prod>/auth/callback`.
+3. Depois da migration: `ALTER ROLE app_runtime WITH PASSWORD '<forte>';` (SQL Editor)
+   e usar essa senha no `DATABASE_URL`.
+
+### Deploy (Vercel)
+
+Importar o repo no Vercel (framework "Other"), setar `DATABASE_URL`, `DIRECT_URL`,
+`SUPABASE_URL`, `FRONTEND_URL` (domínio do front). `vercel.json` roteia tudo para
+`api/index.ts`. Migrations rodam fora do deploy (`npm run prisma:migrate:deploy`).
+
+---
+
+# workspace-agents (template de origem)
 
 Workspace/template pessoal para desenvolvimento de software com agentes de
 IA — Claude Code + o [spec-kit](https://github.com/github/spec-kit) oficial

@@ -1,0 +1,128 @@
+generator client {
+  provider   = "prisma-client"
+  output     = "../src/generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Perfil de uma pessoa autenticada — 1:1 com auth.users (Supabase Auth),
+/// linha criada por trigger de banco no primeiro login (ver migration).
+model Profile {
+  id          String   @id @db.Uuid
+  email       String
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  points      Int      @default(0)
+  isOperator  Boolean  @default(false) @map("is_operator")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  createdProducts      Product[]           @relation("ProductCreatedBy")
+  reviewedProducts     Product[]           @relation("ProductReviewedBy")
+  priceReports         PriceReport[]       @relation("PriceReportReportedBy")
+  reviewedPriceReports PriceReport[]       @relation("PriceReportReviewedBy")
+  priceConfirmations   PriceConfirmation[]
+
+  @@map("profiles")
+}
+
+enum ProductCategory {
+  MERCEARIA
+  BEBIDAS
+  LIMPEZA
+  HIGIENE
+  FRIOS
+  PADARIA
+}
+
+enum ProductStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ReportStatus {
+  ACTIVE
+  PENDING_REVIEW
+  REJECTED
+}
+
+/// Estabelecimento físico onde preços são observados. Catálogo aberto: qualquer
+/// pessoa autenticada pode cadastrar um mercado novo (upsert por nome).
+model Market {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  address   String?
+  city      String?
+  uf        String?  @db.Char(2)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  priceReports PriceReport[]
+
+  @@map("markets")
+}
+
+/// Produto identificado unicamente pelo código de barras (EAN). Fica `PENDING`
+/// até um operador aprovar — só então aparece nas buscas públicas.
+model Product {
+  ean        String          @id
+  name       String
+  brand      String
+  qty        String
+  category   ProductCategory
+  imageUrl   String?         @map("image_url")
+  status     ProductStatus   @default(PENDING)
+  createdBy  String          @map("created_by") @db.Uuid
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedBy String?         @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime?       @map("reviewed_at") @db.Timestamptz(6)
+
+  creator      Profile       @relation("ProductCreatedBy", fields: [createdBy], references: [id])
+  reviewer     Profile?      @relation("ProductReviewedBy", fields: [reviewedBy], references: [id])
+  priceReports PriceReport[]
+
+  @@index([status, category])
+  @@map("products")
+}
+
+/// Observação de preço de um Product em um Market feita por uma pessoa. A
+/// oferta vigente de um par produto+mercado é sempre o reporte ACTIVE mais
+/// recente — não existe tabela própria de "preço atual" (ver research.md#6).
+model PriceReport {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productEan String       @map("product_ean")
+  marketId   String       @map("market_id") @db.Uuid
+  price      Decimal      @db.Decimal(10, 2)
+  status     ReportStatus @default(ACTIVE)
+  reportedBy String       @map("reported_by") @db.Uuid
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewedBy String?      @map("reviewed_by") @db.Uuid
+  reviewedAt DateTime?    @map("reviewed_at") @db.Timestamptz(6)
+
+  product       Product             @relation(fields: [productEan], references: [ean])
+  market        Market              @relation(fields: [marketId], references: [id])
+  reporter      Profile             @relation("PriceReportReportedBy", fields: [reportedBy], references: [id])
+  reviewer      Profile?            @relation("PriceReportReviewedBy", fields: [reviewedBy], references: [id])
+  confirmations PriceConfirmation[]
+
+  @@index([productEan, marketId, status, createdAt])
+  @@index([reportedBy])
+  @@map("price_reports")
+}
+
+/// Confirmação de que um PriceReport específico ainda está correto — no
+/// máximo uma por pessoa por preço (unique constraint).
+model PriceConfirmation {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  priceReportId String   @map("price_report_id") @db.Uuid
+  confirmedBy   String   @map("confirmed_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  priceReport PriceReport @relation(fields: [priceReportId], references: [id], onDelete: Cascade)
+  confirmer   Profile     @relation(fields: [confirmedBy], references: [id])
+
+  @@unique([priceReportId, confirmedBy])
+  @@map("price_confirmations")
+}
