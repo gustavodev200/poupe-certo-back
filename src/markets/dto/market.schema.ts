@@ -17,3 +17,15 @@ export const createMarketSchema = z.object({
 });
 
 export type CreateMarketInput = z.infer<typeof createMarketSchema>;
+
+export const marketsQuerySchema = z.object({
+  city: z.string().trim().min(1).optional(),
+  uf: z
+    .string()
+    .trim()
+    .length(2, 'UF deve ter 2 letras')
+    .transform((value) => value.toUpperCase())
+    .optional(),
+});
+
+export type MarketsQuery = z.infer<typeof marketsQuerySchema>;
