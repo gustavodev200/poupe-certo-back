@@ -60,8 +60,10 @@ function computeHistory(reports: { price: Prisma.Decimal; createdAt: Date }[]) {
     .map(([period, lowestPrice]) => ({ period, lowestPrice }));
 }
 
-function latestActivePerMarket(reports: OfferRow[]): OfferRow[] {
-  const latest = new Map<string, OfferRow>();
+function latestActivePerMarket<T extends { marketId: string }>(
+  reports: T[],
+): T[] {
+  const latest = new Map<string, T>();
   // reports já vêm ordenados createdAt desc — o primeiro visto por mercado é o vigente.
   for (const report of reports) {
     if (!latest.has(report.marketId)) {
@@ -69,6 +71,35 @@ function latestActivePerMarket(reports: OfferRow[]): OfferRow[] {
     }
   }
   return [...latest.values()];
+}
+
+export interface BestActiveOffer {
+  marketId: string;
+  price: number;
+}
+
+// Reaproveitado pelo ShoppingListService (snapshot no POST /users/me/list) —
+// mesma regra de "oferta vigente" usada em findDetail/search: reporte ACTIVE
+// mais recente por mercado, menor preço entre eles (ver research.md#4 da
+// feature 004-lista-compras).
+export async function getBestActiveOffer(
+  tx: Prisma.TransactionClient,
+  ean: string,
+): Promise<BestActiveOffer | null> {
+  const activeReports = await tx.priceReport.findMany({
+    where: { productEan: ean, status: 'ACTIVE' },
+    orderBy: { createdAt: 'desc' },
+    select: { marketId: true, price: true },
+  });
+  const currentOffers = latestActivePerMarket(activeReports);
+  const lowest = currentOffers.reduce<(typeof currentOffers)[number] | null>(
+    (min, offer) =>
+      !min || Number(offer.price) < Number(min.price) ? offer : min,
+    null,
+  );
+  return lowest
+    ? { marketId: lowest.marketId, price: Number(lowest.price) }
+    : null;
 }
 
 @Injectable()

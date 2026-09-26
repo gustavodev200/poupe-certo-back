@@ -26,6 +26,7 @@ model Profile {
   priceReports         PriceReport[]       @relation("PriceReportReportedBy")
   reviewedPriceReports PriceReport[]       @relation("PriceReportReviewedBy")
   priceConfirmations   PriceConfirmation[]
+  shoppingListItems    ShoppingListItem[]
 
   @@map("profiles")
 }
@@ -61,7 +62,8 @@ model Market {
   uf        String?  @db.Char(2)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  priceReports PriceReport[]
+  priceReports      PriceReport[]
+  shoppingListItems ShoppingListItem[]
 
   @@map("markets")
 }
@@ -81,9 +83,10 @@ model Product {
   reviewedBy String?         @map("reviewed_by") @db.Uuid
   reviewedAt DateTime?       @map("reviewed_at") @db.Timestamptz(6)
 
-  creator      Profile       @relation("ProductCreatedBy", fields: [createdBy], references: [id])
-  reviewer     Profile?      @relation("ProductReviewedBy", fields: [reviewedBy], references: [id])
-  priceReports PriceReport[]
+  creator           Profile            @relation("ProductCreatedBy", fields: [createdBy], references: [id])
+  reviewer          Profile?           @relation("ProductReviewedBy", fields: [reviewedBy], references: [id])
+  priceReports      PriceReport[]
+  shoppingListItems ShoppingListItem[]
 
   @@index([status, category])
   @@map("products")
@@ -127,4 +130,24 @@ model PriceConfirmation {
 
   @@unique([priceReportId, confirmedBy])
   @@map("price_confirmations")
+}
+
+/// Item da lista de compras pessoal de uma pessoa. Guarda um snapshot
+/// imutável do preço vigente no momento em que o produto foi adicionado —
+/// não reflete mudanças de preço posteriores (ver research.md#1 da feature).
+model ShoppingListItem {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  productEan String   @map("product_ean")
+  marketId   String   @map("market_id") @db.Uuid
+  price      Decimal  @db.Decimal(10, 2)
+  purchased  Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productEan], references: [ean], onDelete: Cascade)
+  market  Market  @relation(fields: [marketId], references: [id])
+
+  @@unique([userId, productEan])
+  @@map("shopping_list_items")
 }
