@@ -21,8 +21,7 @@
     "test:e2e": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-e2e.json",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate:deploy": "npx prisma migrate deploy",
-    "prisma:migrate:dev": "npx prisma migrate dev",
-    "postinstall": "npx prisma generate"
+    "prisma:migrate:dev": "npx prisma migrate dev"
   },
   "allowScripts": {
     "@parcel/watcher@2.6.0": true,
