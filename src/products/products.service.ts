@@ -10,8 +10,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { categoryCodeToEnum, categoryEnumToCode } from './categories';
 import type {
   CreateProductInput,
+  ProductDetailQuery,
   SearchProductsQuery,
 } from './dto/product.schema';
+
+function marketWhere(
+  filter: Pick<SearchProductsQuery, 'city' | 'uf'>,
+): Prisma.MarketWhereInput | undefined {
+  const { city, uf } = filter;
+  if (!city && !uf) return undefined;
+  return {
+    ...(city && { city: { equals: city, mode: 'insensitive' } }),
+    ...(uf && { uf }),
+  };
+}
 
 interface OfferRow {
   id: string;
@@ -64,7 +76,8 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async search(query: SearchProductsQuery) {
-    const { q, category, sort, page, pageSize } = query;
+    const { q, category, sort, page, pageSize, city, uf } = query;
+    const market = marketWhere({ city, uf });
 
     return this.prisma.asPublic(async (tx) => {
       const where: Prisma.ProductWhereInput = {
@@ -78,13 +91,17 @@ export class ProductsService {
               ],
             }
           : {}),
+        // Preços são hiperlocais: um produto só aparece na busca de uma
+        // cidade se tiver ao menos um preço ativo lá (ver spec da feature
+        // de localização — evita vazar preço/mercado de outra cidade).
+        ...(market && { priceReports: { some: { status: 'ACTIVE', market } } }),
       };
 
       const products = await tx.product.findMany({
         where,
         include: {
           priceReports: {
-            where: { status: 'ACTIVE' },
+            where: { status: 'ACTIVE', ...(market && { market }) },
             orderBy: { createdAt: 'desc' },
             select: {
               id: true,
@@ -155,7 +172,9 @@ export class ProductsService {
     });
   }
 
-  async findDetail(ean: string) {
+  async findDetail(ean: string, filter: ProductDetailQuery = {}) {
+    const market = marketWhere(filter);
+
     return this.prisma.asPublic(async (tx) => {
       const product = await tx.product.findFirst({
         where: { ean, status: 'APPROVED' },
@@ -165,7 +184,11 @@ export class ProductsService {
       }
 
       const activeReports = await tx.priceReport.findMany({
-        where: { productEan: ean, status: 'ACTIVE' },
+        where: {
+          productEan: ean,
+          status: 'ACTIVE',
+          ...(market && { market }),
+        },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,

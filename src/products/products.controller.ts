@@ -36,8 +36,10 @@ import {
 import {
   createProductSchema,
   eanSchema,
+  productDetailQuerySchema,
   searchProductsQuerySchema,
   type CreateProductInput,
+  type ProductDetailQuery,
   type SearchProductsQuery,
 } from './dto/product.schema';
 import { ProductsService } from './products.service';
@@ -56,6 +58,8 @@ export class ProductsController {
   @ApiQuery({ name: 'sort', required: false, enum: ['preco', 'recente'] })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
+  @ApiQuery({ name: 'city', required: false })
+  @ApiQuery({ name: 'uf', required: false })
   @ApiOkResponse({ type: SearchProductsResultDto })
   search(
     @Query(new ZodValidationPipe(searchProductsQuerySchema))
@@ -81,10 +85,16 @@ export class ProductsController {
       'Detalhe de um produto aprovado, com ofertas por mercado (público)',
   })
   @ApiParam({ name: 'ean' })
+  @ApiQuery({ name: 'city', required: false })
+  @ApiQuery({ name: 'uf', required: false })
   @ApiOkResponse({ type: ProductDetailDto })
   @ApiNotFoundResponse()
-  findDetail(@Param('ean', new ZodValidationPipe(eanSchema)) ean: string) {
-    return this.products.findDetail(ean);
+  findDetail(
+    @Param('ean', new ZodValidationPipe(eanSchema)) ean: string,
+    @Query(new ZodValidationPipe(productDetailQuerySchema))
+    query: ProductDetailQuery,
+  ) {
+    return this.products.findDetail(ean, query);
   }
 
   @Post()
