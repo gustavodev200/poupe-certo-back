@@ -23,13 +23,30 @@ export class ModerationService {
   async listQueue(operatorId: string) {
     return this.prisma.asUser(operatorId, async (tx) => {
       const [products, priceReports] = await Promise.all([
+        // Produto novo só chega aqui já com o preço junto (ver
+        // ProductsService.create) — inclui o PriceReport PENDING_REVIEW pra
+        // o admin decidir os dois de uma vez.
         tx.product.findMany({
           where: { status: 'PENDING' },
           orderBy: { createdAt: 'asc' },
           take: MODERATION_QUEUE_PAGE_SIZE,
+          include: {
+            priceReports: {
+              where: { status: 'PENDING_REVIEW' },
+              orderBy: { createdAt: 'asc' },
+              take: 1,
+              include: { market: { select: { id: true, name: true } } },
+            },
+          },
         }),
+        // Exclui preços de produto ainda pendente — esses já aparecem
+        // acima, junto do produto; aqui só sobra preço fora do padrão em
+        // produto que já é público.
         tx.priceReport.findMany({
-          where: { status: 'PENDING_REVIEW' },
+          where: {
+            status: 'PENDING_REVIEW',
+            product: { status: 'APPROVED' },
+          },
           orderBy: { createdAt: 'asc' },
           take: MODERATION_QUEUE_PAGE_SIZE,
           include: {
@@ -40,15 +57,23 @@ export class ModerationService {
       ]);
 
       return {
-        products: products.map((product) => ({
-          ean: product.ean,
-          name: product.name,
-          brand: product.brand,
-          qty: product.qty,
-          category: categoryEnumToCode(product.category),
-          createdBy: product.createdBy,
-          createdAt: product.createdAt.toISOString(),
-        })),
+        products: products.map((product) => {
+          const priceReport = product.priceReports[0] ?? null;
+          return {
+            ean: product.ean,
+            name: product.name,
+            brand: product.brand,
+            qty: product.qty,
+            category: categoryEnumToCode(product.category),
+            createdBy: product.createdBy,
+            createdAt: product.createdAt.toISOString(),
+            priceReport: priceReport && {
+              id: priceReport.id,
+              market: priceReport.market,
+              price: Number(priceReport.price),
+            },
+          };
+        }),
         priceReports: priceReports.map((report) => ({
           id: report.id,
           product: report.product,
@@ -71,6 +96,13 @@ export class ModerationService {
         throw new ConflictException('Produto já foi decidido');
       }
 
+      // Produto novo sempre nasce com um PriceReport PENDING_REVIEW junto
+      // (ver ProductsService.create) — a decisão do admin sobre o produto
+      // decide os dois de uma vez, sem passo extra na fila de preços.
+      const pendingPriceReport = await tx.priceReport.findFirst({
+        where: { productEan: ean, status: 'PENDING_REVIEW' },
+      });
+
       if (decision === 'approve') {
         await tx.product.update({
           where: { ean },
@@ -80,6 +112,22 @@ export class ModerationService {
             reviewedAt: new Date(),
           },
         });
+
+        if (pendingPriceReport) {
+          await tx.priceReport.update({
+            where: { id: pendingPriceReport.id },
+            data: {
+              status: 'ACTIVE',
+              reviewedBy: operatorId,
+              reviewedAt: new Date(),
+            },
+          });
+          await tx.profile.update({
+            where: { id: pendingPriceReport.reportedBy },
+            data: { points: { increment: PRICE_REPORT_POINTS } },
+          });
+        }
+
         return { ean, status: 'APPROVED' as const };
       }
 
@@ -91,6 +139,17 @@ export class ModerationService {
           reviewedAt: new Date(),
         },
       });
+
+      if (pendingPriceReport) {
+        await tx.priceReport.update({
+          where: { id: pendingPriceReport.id },
+          data: {
+            status: 'REJECTED',
+            reviewedBy: operatorId,
+            reviewedAt: new Date(),
+          },
+        });
+      }
 
       // Estorno satura em 0 — nunca deixa o total de pontos ficar negativo (FR-017).
       const author = await tx.profile.findUnique({

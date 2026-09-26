@@ -136,6 +136,12 @@ export class CreateProductDto {
 
   @ApiPropertyOptional({ example: null, nullable: true })
   imageUrl?: string;
+
+  @ApiProperty({ format: 'uuid' })
+  marketId!: string;
+
+  @ApiProperty({ example: 5.99 })
+  price!: number;
 }
 
 export class CreateProductResponseDto {

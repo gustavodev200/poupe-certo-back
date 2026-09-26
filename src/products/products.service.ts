@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -235,6 +236,13 @@ export class ProductsService {
   ): Promise<{ ean: string; status: 'PENDING'; pointsAwarded: number }> {
     try {
       return await this.prisma.asUser(userId, async (tx) => {
+        const market = await tx.market.findUnique({
+          where: { id: dto.marketId },
+        });
+        if (!market) {
+          throw new BadRequestException('Mercado não encontrado');
+        }
+
         await tx.product.create({
           data: {
             ean: dto.ean,
@@ -244,6 +252,19 @@ export class ProductsService {
             category: categoryCodeToEnum(dto.category),
             imageUrl: dto.imageUrl,
             createdBy: userId,
+          },
+        });
+        // Preço de produto recém-criado nasce PENDING_REVIEW mesmo sem ser
+        // outlier — o produto ainda não é público, então não há como o preço
+        // "passar direto": os dois só saem da fila quando o admin aprova o
+        // produto (ver ModerationService.decideProduct).
+        await tx.priceReport.create({
+          data: {
+            productEan: dto.ean,
+            marketId: dto.marketId,
+            price: dto.price,
+            status: 'PENDING_REVIEW',
+            reportedBy: userId,
           },
         });
         await tx.profile.update({

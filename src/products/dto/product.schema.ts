@@ -31,6 +31,11 @@ export const createProductSchema = z.object({
   qty: z.string().trim().min(1, 'Informe a quantidade').max(40),
   category: z.enum(CATEGORY_CODES),
   imageUrl: z.string().trim().url('URL de imagem inválida').optional(),
+  marketId: z.string().uuid('marketId inválido'),
+  price: z.coerce
+    .number()
+    .positive('Preço deve ser maior que zero')
+    .finite('Preço inválido'),
 });
 
 export type CreateProductInput = z.infer<typeof createProductSchema>;

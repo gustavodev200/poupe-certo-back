@@ -22,6 +22,17 @@ class MarketRefDto {
   name!: string;
 }
 
+class PendingProductPriceReportDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ type: MarketRefDto })
+  market!: MarketRefDto;
+
+  @ApiProperty({ example: 99.9 })
+  price!: number;
+}
+
 export class PendingProductDto {
   @ApiProperty()
   ean!: string;
@@ -43,6 +54,9 @@ export class PendingProductDto {
 
   @ApiProperty()
   createdAt!: string;
+
+  @ApiPropertyOptional({ type: PendingProductPriceReportDto, nullable: true })
+  priceReport!: PendingProductPriceReportDto | null;
 }
 
 export class PendingPriceReportDto {
