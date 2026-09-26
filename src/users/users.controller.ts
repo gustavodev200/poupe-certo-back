@@ -1,6 +1,7 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -20,6 +21,11 @@ import {
   contributionsQuerySchema,
   type ContributionsQuery,
 } from './dto/contributions-query.schema';
+import { LocationDto, UpdateLocationDto } from './dto/location.dto';
+import {
+  updateLocationSchema,
+  type UpdateLocationInput,
+} from './dto/location.schema';
 import { UsersService, type ProfileResponse } from './users.service';
 
 @ApiTags('users')
@@ -59,5 +65,19 @@ export class UsersController {
     query: ContributionsQuery,
   ) {
     return this.users.getContributions(user.id, query);
+  }
+
+  @Patch('me/location')
+  @ApiOperation({
+    summary: 'Salva a cidade/UF escolhida no onboarding no próprio perfil',
+  })
+  @ApiBody({ type: UpdateLocationDto })
+  @ApiOkResponse({ type: LocationDto })
+  setLocation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updateLocationSchema))
+    dto: UpdateLocationInput,
+  ) {
+    return this.users.setLocation(user.id, dto);
   }
 }

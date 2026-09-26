@@ -6,12 +6,15 @@ import {
 } from '../gamification/points';
 import { PrismaService } from '../prisma/prisma.service';
 import type { ContributionsQuery } from './dto/contributions-query.schema';
+import type { UpdateLocationInput } from './dto/location.schema';
 
 export interface ProfileResponse {
   id: string;
   email: string;
   displayName: string | null;
   avatarUrl: string | null;
+  city: string | null;
+  uf: string | null;
   createdAt: Date;
 }
 
@@ -48,6 +51,8 @@ export class UsersService {
           email: true,
           displayName: true,
           avatarUrl: true,
+          city: true,
+          uf: true,
           createdAt: true,
         },
       }),
@@ -56,6 +61,20 @@ export class UsersService {
       throw new NotFoundException('Profile not found');
     }
     return profile;
+  }
+
+  async setLocation(
+    userId: string,
+    { city, uf }: UpdateLocationInput,
+  ): Promise<{ city: string; uf: string }> {
+    await this.prisma.asUser(userId, (tx) =>
+      tx.profile.update({
+        where: { id: userId },
+        data: { city, uf },
+        select: { id: true },
+      }),
+    );
+    return { city, uf };
   }
 
   async getStats(userId: string): Promise<ProfileStats> {

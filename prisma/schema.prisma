@@ -17,6 +17,8 @@ model Profile {
   avatarUrl   String?  @map("avatar_url")
   points      Int      @default(0)
   isOperator  Boolean  @default(false) @map("is_operator")
+  city        String?
+  uf          String?  @db.Char(2)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   createdProducts      Product[]           @relation("ProductCreatedBy")

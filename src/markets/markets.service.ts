@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateMarketInput } from './dto/market.schema';
+import type { CreateMarketInput, MarketsQuery } from './dto/market.schema';
 
 export interface MarketResponse {
   id: string;
@@ -14,9 +14,14 @@ export interface MarketResponse {
 export class MarketsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(): Promise<MarketResponse[]> {
+  list(filter: MarketsQuery = {}): Promise<MarketResponse[]> {
+    const { city, uf } = filter;
     return this.prisma.asPublic((tx) =>
       tx.market.findMany({
+        where: {
+          ...(city && { city: { equals: city, mode: 'insensitive' } }),
+          ...(uf && { uf }),
+        },
         orderBy: { name: 'asc' },
         select: { id: true, name: true, address: true, city: true, uf: true },
       }),
