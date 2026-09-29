@@ -178,6 +178,7 @@ export class ProductsService {
           brand: product.brand,
           qty: product.qty,
           category: categoryEnumToCode(product.category),
+          imageUrl: product.imageUrl,
           lowestOffer: lowest
             ? {
                 market: lowest.market,
@@ -201,6 +202,7 @@ export class ProductsService {
         brand: entry.brand,
         qty: entry.qty,
         category: entry.category,
+        imageUrl: entry.imageUrl,
         lowestOffer: entry.lowestOffer,
         offerCount: entry.offerCount,
       }));

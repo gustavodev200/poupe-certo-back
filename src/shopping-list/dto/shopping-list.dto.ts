@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MarketRefDto } from '../../products/dto/product.dto';
 
 // Classe de documentação Swagger, espelhando shopping-list.schema.ts — nunca
@@ -25,6 +25,12 @@ export class ProductRefDto {
 
   @ApiProperty({ example: '5kg' })
   qty!: string;
+
+  @ApiPropertyOptional({
+    description: 'Foto no Cloudinary, ou null',
+    nullable: true,
+  })
+  imageUrl!: string | null;
 }
 
 export class ShoppingListItemDto {

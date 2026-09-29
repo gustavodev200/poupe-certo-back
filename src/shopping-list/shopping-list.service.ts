@@ -6,7 +6,13 @@ import type { AddToListInput } from './dto/shopping-list.schema';
 
 export interface ShoppingListItemResult {
   id: string;
-  product: { ean: string; name: string; brand: string; qty: string };
+  product: {
+    ean: string;
+    name: string;
+    brand: string;
+    qty: string;
+    imageUrl: string | null;
+  };
   market: { id: string; name: string };
   price: number;
   purchased: boolean;
@@ -18,7 +24,9 @@ const ITEM_SELECT = {
   price: true,
   purchased: true,
   createdAt: true,
-  product: { select: { ean: true, name: true, brand: true, qty: true } },
+  product: {
+    select: { ean: true, name: true, brand: true, qty: true, imageUrl: true },
+  },
   market: { select: { id: true, name: true } },
 } satisfies Prisma.ShoppingListItemSelect;
 
