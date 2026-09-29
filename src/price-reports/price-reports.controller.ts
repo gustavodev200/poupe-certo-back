@@ -46,7 +46,7 @@ export class PriceReportsController {
   @ApiBody({ type: CreatePriceReportDto })
   @ApiOkResponse({
     type: PriceReportResultDto,
-    description: '201 aceito direto, 202 pendente de revisão',
+    description: '202 — todo preço fica pendente de aprovação do admin',
   })
   @ApiNotFoundResponse({
     description: 'Produto não encontrado ou não aprovado',

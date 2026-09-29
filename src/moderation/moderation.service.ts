@@ -40,8 +40,8 @@ export class ModerationService {
           },
         }),
         // Exclui preços de produto ainda pendente — esses já aparecem
-        // acima, junto do produto; aqui só sobra preço fora do padrão em
-        // produto que já é público.
+        // acima, junto do produto; aqui só sobra preço novo em produto que
+        // já é público. A foto vai junto pro admin conferir o produto.
         tx.priceReport.findMany({
           where: {
             status: 'PENDING_REVIEW',
@@ -50,7 +50,9 @@ export class ModerationService {
           orderBy: { createdAt: 'asc' },
           take: MODERATION_QUEUE_PAGE_SIZE,
           include: {
-            product: { select: { ean: true, name: true } },
+            product: {
+              select: { ean: true, name: true, brand: true, imageUrl: true },
+            },
             market: { select: { id: true, name: true } },
           },
         }),

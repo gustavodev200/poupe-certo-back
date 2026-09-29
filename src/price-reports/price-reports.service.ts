@@ -3,10 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PRICE_REPORT_POINTS } from '../gamification/points';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePriceReportInput } from './dto/price-report.schema';
-import { decidePriceReportStatus, OUTLIER_SAMPLE_SIZE } from './outlier';
 
 export interface PriceReportResult {
   id: string;
@@ -39,39 +37,23 @@ export class PriceReportsService {
         throw new BadRequestException('Mercado não encontrado');
       }
 
-      const recent = await tx.priceReport.findMany({
-        where: { productEan: ean, status: 'ACTIVE' },
-        orderBy: { createdAt: 'desc' },
-        take: OUTLIER_SAMPLE_SIZE,
-        select: { price: true },
-      });
-      const prices = recent.map((report) => Number(report.price));
-      const status = decidePriceReportStatus(dto.price, prices);
-
+      // Todo preço passa pela moderação antes de ficar público — os pontos
+      // só entram quando o admin aprova (ModerationService.decidePriceReport).
       const created = await tx.priceReport.create({
         data: {
           productEan: ean,
           marketId: dto.marketId,
           price: dto.price,
-          status,
+          status: 'PENDING_REVIEW',
           reportedBy: userId,
         },
       });
 
-      if (status === 'ACTIVE') {
-        await tx.profile.update({
-          where: { id: userId },
-          data: { points: { increment: PRICE_REPORT_POINTS } },
-        });
-      }
-
       return {
         id: created.id,
-        status,
-        pointsAwarded: status === 'ACTIVE' ? PRICE_REPORT_POINTS : 0,
-        ...(status === 'PENDING_REVIEW'
-          ? { message: 'Preço fora do padrão, enviado para revisão' }
-          : {}),
+        status: 'PENDING_REVIEW',
+        pointsAwarded: 0,
+        message: 'Preço enviado para aprovação',
       };
     });
   }
