@@ -28,4 +28,8 @@ describe('Users stats/contributions (e2e)', () => {
   it('GET /users/me/contributions sem token retorna 401', () => {
     return request(httpServer(app)).get('/users/me/contributions').expect(401);
   });
+
+  it('GET /users/me/products sem token retorna 401', () => {
+    return request(httpServer(app)).get('/users/me/products').expect(401);
+  });
 });

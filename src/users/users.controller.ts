@@ -22,6 +22,11 @@ import {
   type ContributionsQuery,
 } from './dto/contributions-query.schema';
 import { LocationDto, UpdateLocationDto } from './dto/location.dto';
+import { MyProductsResultDto } from './dto/my-products.dto';
+import {
+  myProductsQuerySchema,
+  type MyProductsQuery,
+} from './dto/my-products-query.schema';
 import {
   updateLocationSchema,
   type UpdateLocationInput,
@@ -65,6 +70,27 @@ export class UsersController {
     query: ContributionsQuery,
   ) {
     return this.users.getContributions(user.id, query);
+  }
+
+  @Get('me/products')
+  @ApiOperation({
+    summary:
+      'Produtos cadastrados pela própria pessoa, com status de moderação',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING', 'APPROVED', 'REJECTED'],
+  })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'pageSize', required: false })
+  @ApiOkResponse({ type: MyProductsResultDto })
+  myProducts(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(myProductsQuerySchema))
+    query: MyProductsQuery,
+  ) {
+    return this.users.getMyProducts(user.id, query);
   }
 
   @Patch('me/location')
