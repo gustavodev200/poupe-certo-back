@@ -7,6 +7,8 @@ import {
 import { NEW_PRODUCT_POINTS } from '../gamification/points';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from './cloudinary.service';
+import { OpenFoodFactsService } from './open-food-facts.service';
 import { categoryCodeToEnum, categoryEnumToCode } from './categories';
 import type {
   CreateProductInput,
@@ -60,8 +62,10 @@ function computeHistory(reports: { price: Prisma.Decimal; createdAt: Date }[]) {
     .map(([period, lowestPrice]) => ({ period, lowestPrice }));
 }
 
-function latestActivePerMarket(reports: OfferRow[]): OfferRow[] {
-  const latest = new Map<string, OfferRow>();
+function latestActivePerMarket<T extends { marketId: string }>(
+  reports: T[],
+): T[] {
+  const latest = new Map<string, T>();
   // reports já vêm ordenados createdAt desc — o primeiro visto por mercado é o vigente.
   for (const report of reports) {
     if (!latest.has(report.marketId)) {
@@ -71,9 +75,42 @@ function latestActivePerMarket(reports: OfferRow[]): OfferRow[] {
   return [...latest.values()];
 }
 
+export interface BestActiveOffer {
+  marketId: string;
+  price: number;
+}
+
+// Reaproveitado pelo ShoppingListService (snapshot no POST /users/me/list) —
+// mesma regra de "oferta vigente" usada em findDetail/search: reporte ACTIVE
+// mais recente por mercado, menor preço entre eles (ver research.md#4 da
+// feature 004-lista-compras).
+export async function getBestActiveOffer(
+  tx: Prisma.TransactionClient,
+  ean: string,
+): Promise<BestActiveOffer | null> {
+  const activeReports = await tx.priceReport.findMany({
+    where: { productEan: ean, status: 'ACTIVE' },
+    orderBy: { createdAt: 'desc' },
+    select: { marketId: true, price: true },
+  });
+  const currentOffers = latestActivePerMarket(activeReports);
+  const lowest = currentOffers.reduce<(typeof currentOffers)[number] | null>(
+    (min, offer) =>
+      !min || Number(offer.price) < Number(min.price) ? offer : min,
+    null,
+  );
+  return lowest
+    ? { marketId: lowest.marketId, price: Number(lowest.price) }
+    : null;
+}
+
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly openFoodFacts: OpenFoodFactsService,
+    private readonly cloudinary: CloudinaryService,
+  ) {}
 
   async search(query: SearchProductsQuery) {
     const { q, category, sort, page, pageSize, city, uf } = query;
@@ -231,6 +268,7 @@ export class ProductsService {
         brand: product.brand,
         qty: product.qty,
         category: categoryEnumToCode(product.category),
+        imageUrl: product.imageUrl,
         offers,
         stats,
         history,
@@ -257,6 +295,7 @@ export class ProductsService {
     userId: string,
     dto: CreateProductInput,
   ): Promise<{ ean: string; status: 'PENDING'; pointsAwarded: number }> {
+    const imageUrl = await this.resolveProductImage(dto.ean);
     try {
       return await this.prisma.asUser(userId, async (tx) => {
         const market = await tx.market.findUnique({
@@ -273,7 +312,7 @@ export class ProductsService {
             brand: dto.brand,
             qty: dto.qty,
             category: categoryCodeToEnum(dto.category),
-            imageUrl: dto.imageUrl,
+            imageUrl,
             createdBy: userId,
           },
         });
@@ -309,5 +348,17 @@ export class ProductsService {
       }
       throw error;
     }
+  }
+
+  // Foto sai do próprio EAN (lookup cacheado → upload Cloudinary), nunca de
+  // dado do cliente. Fora da transação para não segurar conexão do pooler
+  // durante I/O externo; best-effort — qualquer falha vira produto sem foto.
+  private async resolveProductImage(ean: string): Promise<string | null> {
+    if (!this.cloudinary.isEnabled()) return null;
+    // EAN já cadastrado vai dar 409 de qualquer forma — não gasta upload.
+    if ((await this.existsByEan(ean)).exists) return null;
+    const suggestion = await this.openFoodFacts.lookup(ean);
+    if (!suggestion.imageUrl) return null;
+    return this.cloudinary.uploadProductImage(ean, suggestion.imageUrl);
   }
 }

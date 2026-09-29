@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -29,6 +30,7 @@ import { WriteThrottle } from '../common/throttle/write-throttle.decorator';
 import {
   CreateProductDto,
   CreateProductResponseDto,
+  EanLookupDto,
   ProductDetailDto,
   ProductExistsDto,
   SearchProductsResultDto,
@@ -42,12 +44,16 @@ import {
   type ProductDetailQuery,
   type SearchProductsQuery,
 } from './dto/product.schema';
+import { OpenFoodFactsService } from './open-food-facts.service';
 import { ProductsService } from './products.service';
 
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(
+    private readonly products: ProductsService,
+    private readonly openFoodFacts: OpenFoodFactsService,
+  ) {}
 
   @Get('search')
   @ApiOperation({
@@ -77,6 +83,22 @@ export class ProductsController {
   @ApiOkResponse({ type: ProductExistsDto })
   existsByEan(@Param('ean', new ZodValidationPipe(eanSchema)) ean: string) {
     return this.products.existsByEan(ean);
+  }
+
+  @Get('ean/:ean/lookup')
+  @UseGuards(SupabaseJwtGuard)
+  // Além do cache/dedupe no service, limita quantos EANs *diferentes* uma
+  // pessoa consegue forçar contra o Open Food Facts por minuto.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Sugere nome/marca/quantidade/categoria/foto de um EAN via Open Food Facts (cacheado)',
+  })
+  @ApiParam({ name: 'ean' })
+  @ApiOkResponse({ type: EanLookupDto })
+  lookup(@Param('ean', new ZodValidationPipe(eanSchema)) ean: string) {
+    return this.openFoodFacts.lookup(ean);
   }
 
   @Get(':ean')

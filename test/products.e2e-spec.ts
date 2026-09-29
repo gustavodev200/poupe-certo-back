@@ -55,6 +55,19 @@ describe('Products (e2e)', () => {
     return request(httpServer(app)).get('/products/search?page=-1').expect(400);
   });
 
+  it('GET /products/ean/:ean/lookup sem token retorna 401 (não consulta o Open Food Facts)', () => {
+    return request(httpServer(app))
+      .get('/products/ean/7891000100103/lookup')
+      .expect(401);
+  });
+
+  it('GET /products/ean/:ean/lookup com token inválido retorna 401', () => {
+    return request(httpServer(app))
+      .get('/products/ean/7891000100103/lookup')
+      .set('Authorization', 'Bearer token-invalido')
+      .expect(401);
+  });
+
   it('GET /products/ean/:ean/exists com EAN mal formado retorna 400', () => {
     return request(httpServer(app)).get('/products/ean/abc/exists').expect(400);
   });

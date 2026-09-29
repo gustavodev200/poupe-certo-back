@@ -45,7 +45,6 @@ export const createProductSchema = z.object({
     .max(120),
   qty: z.string().trim().min(1, 'Informe a quantidade').max(40),
   category: z.enum(CATEGORY_CODES),
-  imageUrl: z.string().trim().url('URL de imagem inválida').optional(),
   marketId: z.string().uuid('marketId inválido'),
   price: z.coerce
     .number()
@@ -53,4 +52,6 @@ export const createProductSchema = z.object({
     .finite('Preço inválido'),
 });
 
+// `imageUrl` não é aceito do cliente: z.object descarta chaves desconhecidas e
+// o servidor deriva a foto do próprio EAN (FR-011/FR-012).
 export type CreateProductInput = z.infer<typeof createProductSchema>;

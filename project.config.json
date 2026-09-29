@@ -8,7 +8,7 @@
   "database": "prisma-postgres",
   "auth": "supabase-auth",
   "email": null,
-  "storage": null,
+  "storage": "cloudinary",
 
-  "notes": "Backend puro (API para poupe-certo-front, repositório separado). Desvio pontual documentado (ver .claude/skills/core/stack-detection/SKILL.md#desvios-pontuais): preset prisma-postgres (Nest + Prisma são donos do acesso a dado), mas auth é 'supabase-auth' — login social (Google) delegado ao Supabase Auth (GoTrue) do projeto Supabase 'poupe-certo' (ref mcuipdmthhpfbjneuspw), compartilhado com o front. Nest nunca faz login: só valida o JWT emitido pelo Supabase num AuthGuard. Prisma conecta direto no Postgres do mesmo projeto Supabase (via connection string pooled) — não usa supabase-js/PostgREST, então RLS não é a camada de autorização do Nest (autorização fica no service); RLS ainda habilitada nas tabelas como defesa em profundidade. Deploy: Vercel (serverless functions), free tier."
+  "notes": "Backend puro (API para poupe-certo-front, repositório separado). Desvio pontual documentado (ver .claude/skills/core/stack-detection/SKILL.md#desvios-pontuais): preset prisma-postgres (Nest + Prisma são donos do acesso a dado), mas auth é 'supabase-auth' — login social (Google) delegado ao Supabase Auth (GoTrue) do projeto Supabase 'poupe-certo' (ref mcuipdmthhpfbjneuspw), compartilhado com o front. Nest nunca faz login: só valida o JWT emitido pelo Supabase num AuthGuard. Prisma conecta direto no Postgres do mesmo projeto Supabase (via connection string pooled) — não usa supabase-js/PostgREST, então RLS não é a camada de autorização do Nest (autorização fica no service); RLS ainda habilitada nas tabelas como defesa em profundidade. Deploy: Vercel (serverless functions), free tier. Storage: fotos de produto no Cloudinary (upload assinado server-side por URL remota, credenciais CLOUDINARY_* só em env do back) — feature 005-preenchimento-ean."
 }

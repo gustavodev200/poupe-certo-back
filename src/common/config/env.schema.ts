@@ -14,6 +14,12 @@ export const envSchema = z.object({
     .optional()
     .default('true')
     .transform((value) => value.toLowerCase() !== 'false'),
+  // Opcionais: sem as três, o upload de foto fica desligado e o produto é
+  // cadastrado sem imagem (ver CloudinaryService).
+  CLOUDINARY_CLOUD_NAME: z.string().trim().optional(),
+  CLOUDINARY_API_KEY: z.string().trim().optional(),
+  CLOUDINARY_API_SECRET: z.string().trim().optional(),
+  OFF_USER_AGENT: z.string().trim().min(1).optional().default('PoupeCerto/0.1'),
 });
 
 export type Env = z.infer<typeof envSchema>;
