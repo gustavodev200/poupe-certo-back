@@ -26,9 +26,9 @@ export class CreateMarketDto {
   @ApiPropertyOptional({ example: 'Av. Central, 900' })
   address?: string;
 
-  @ApiPropertyOptional({ example: 'Goiânia' })
-  city?: string;
+  @ApiProperty({ example: 'Goiânia' })
+  city!: string;
 
-  @ApiPropertyOptional({ example: 'GO' })
-  uf?: string;
+  @ApiProperty({ example: 'GO' })
+  uf!: string;
 }

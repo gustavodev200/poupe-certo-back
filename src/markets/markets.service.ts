@@ -10,6 +10,16 @@ export interface MarketResponse {
   uf: string | null;
 }
 
+// Mesmo mercado = mesmo nome na mesma cidade/UF (espelha o índice único
+// markets_name_city_uf_lower_key).
+function sameMarket(dto: CreateMarketInput) {
+  return {
+    name: { equals: dto.name, mode: 'insensitive' as const },
+    city: { equals: dto.city, mode: 'insensitive' as const },
+    uf: dto.uf,
+  };
+}
+
 @Injectable()
 export class MarketsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -34,7 +44,7 @@ export class MarketsService {
   ): Promise<{ market: MarketResponse; created: boolean }> {
     return this.prisma.asUser(userId, async (tx) => {
       const existing = await tx.market.findFirst({
-        where: { name: { equals: dto.name, mode: 'insensitive' } },
+        where: sameMarket(dto),
         select: { id: true, name: true, address: true, city: true, uf: true },
       });
       if (existing) {
@@ -49,7 +59,7 @@ export class MarketsService {
         return { market: created, created: true };
       } catch {
         const raceWinner = await tx.market.findFirst({
-          where: { name: { equals: dto.name, mode: 'insensitive' } },
+          where: sameMarket(dto),
           select: { id: true, name: true, address: true, city: true, uf: true },
         });
         if (raceWinner) {
