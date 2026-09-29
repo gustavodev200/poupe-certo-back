@@ -66,6 +66,12 @@ export class ProductSummaryDto {
   @ApiPropertyOptional({ type: OfferSummaryDto, nullable: true })
   lowestOffer!: OfferSummaryDto | null;
 
+  @ApiPropertyOptional({
+    description: 'Foto no Cloudinary, ou null',
+    nullable: true,
+  })
+  imageUrl!: string | null;
+
   @ApiProperty({ example: 4 })
   offerCount!: number;
 }

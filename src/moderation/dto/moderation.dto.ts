@@ -49,6 +49,12 @@ export class PendingProductDto {
   @ApiProperty({ enum: CATEGORY_CODES })
   category!: CategoryCode;
 
+  @ApiPropertyOptional({
+    description: 'Foto no Cloudinary, ou null',
+    nullable: true,
+  })
+  imageUrl!: string | null;
+
   @ApiProperty({ format: 'uuid' })
   createdBy!: string;
 

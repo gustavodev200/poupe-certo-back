@@ -65,6 +65,7 @@ export class ModerationService {
             brand: product.brand,
             qty: product.qty,
             category: categoryEnumToCode(product.category),
+            imageUrl: product.imageUrl,
             createdBy: product.createdBy,
             createdAt: product.createdAt.toISOString(),
             priceReport: priceReport && {
