@@ -5,8 +5,13 @@ import {
   progressPercent,
 } from '../gamification/points';
 import { PrismaService } from '../prisma/prisma.service';
+import { categoryEnumToCode } from '../products/categories';
 import type { ContributionsQuery } from './dto/contributions-query.schema';
 import type { UpdateLocationInput } from './dto/location.schema';
+import {
+  PRODUCT_STATUSES,
+  type MyProductsQuery,
+} from './dto/my-products-query.schema';
 
 export interface ProfileResponse {
   id: string;
@@ -15,6 +20,7 @@ export interface ProfileResponse {
   avatarUrl: string | null;
   city: string | null;
   uf: string | null;
+  isOperator: boolean;
   createdAt: Date;
 }
 
@@ -53,6 +59,7 @@ export class UsersService {
           avatarUrl: true,
           city: true,
           uf: true,
+          isOperator: true,
           createdAt: true,
         },
       }),
@@ -182,6 +189,62 @@ export class UsersService {
         page,
         pageSize,
         total,
+      };
+    });
+  }
+
+  async getMyProducts(userId: string, query: MyProductsQuery) {
+    const { status, page, pageSize } = query;
+
+    // `where createdBy` é obrigatório mesmo com a RLS: para `authenticated`
+    // a policy `products_select_approved` também libera aprovados de
+    // terceiros — sem o filtro a lista misturaria produtos dos outros.
+    return this.prisma.asUser(userId, async (tx) => {
+      const where = { createdBy: userId, ...(status ? { status } : {}) };
+      const [items, total, grouped] = await Promise.all([
+        tx.product.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { ean: 'asc' }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          select: {
+            ean: true,
+            name: true,
+            brand: true,
+            qty: true,
+            category: true,
+            imageUrl: true,
+            status: true,
+            createdAt: true,
+            reviewedAt: true,
+          },
+        }),
+        tx.product.count({ where }),
+        tx.product.groupBy({
+          by: ['status'],
+          where: { createdBy: userId },
+          _count: { _all: true },
+        }),
+      ]);
+
+      const counts = Object.fromEntries(
+        PRODUCT_STATUSES.map((s) => [
+          s,
+          grouped.find((g) => g.status === s)?._count._all ?? 0,
+        ]),
+      ) as Record<(typeof PRODUCT_STATUSES)[number], number>;
+
+      return {
+        items: items.map((product) => ({
+          ...product,
+          category: categoryEnumToCode(product.category),
+          createdAt: product.createdAt.toISOString(),
+          reviewedAt: product.reviewedAt?.toISOString() ?? null,
+        })),
+        page,
+        pageSize,
+        total,
+        counts,
       };
     });
   }

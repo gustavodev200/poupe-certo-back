@@ -7,13 +7,14 @@ export const createMarketSchema = z.object({
     .min(2, 'Nome deve ter no mínimo 2 caracteres')
     .max(150),
   address: z.string().trim().max(200).optional(),
-  city: z.string().trim().max(100).optional(),
+  // Obrigatórios: GET /markets filtra por cidade/UF, então mercado sem
+  // cidade nunca apareceria na lista de ninguém.
+  city: z.string().trim().min(1, 'Informe a cidade do mercado').max(100),
   uf: z
     .string()
     .trim()
     .length(2, 'UF deve ter 2 letras')
-    .transform((value) => value.toUpperCase())
-    .optional(),
+    .transform((value) => value.toUpperCase()),
 });
 
 export type CreateMarketInput = z.infer<typeof createMarketSchema>;
