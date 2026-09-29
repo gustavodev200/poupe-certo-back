@@ -7,6 +7,8 @@ import {
 import { NEW_PRODUCT_POINTS } from '../gamification/points';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from './cloudinary.service';
+import { OpenFoodFactsService } from './open-food-facts.service';
 import { categoryCodeToEnum, categoryEnumToCode } from './categories';
 import type {
   CreateProductInput,
@@ -104,7 +106,11 @@ export async function getBestActiveOffer(
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly openFoodFacts: OpenFoodFactsService,
+    private readonly cloudinary: CloudinaryService,
+  ) {}
 
   async search(query: SearchProductsQuery) {
     const { q, category, sort, page, pageSize, city, uf } = query;
@@ -262,6 +268,7 @@ export class ProductsService {
         brand: product.brand,
         qty: product.qty,
         category: categoryEnumToCode(product.category),
+        imageUrl: product.imageUrl,
         offers,
         stats,
         history,
@@ -288,6 +295,7 @@ export class ProductsService {
     userId: string,
     dto: CreateProductInput,
   ): Promise<{ ean: string; status: 'PENDING'; pointsAwarded: number }> {
+    const imageUrl = await this.resolveProductImage(dto.ean);
     try {
       return await this.prisma.asUser(userId, async (tx) => {
         const market = await tx.market.findUnique({
@@ -304,7 +312,7 @@ export class ProductsService {
             brand: dto.brand,
             qty: dto.qty,
             category: categoryCodeToEnum(dto.category),
-            imageUrl: dto.imageUrl,
+            imageUrl,
             createdBy: userId,
           },
         });
@@ -340,5 +348,17 @@ export class ProductsService {
       }
       throw error;
     }
+  }
+
+  // Foto sai do próprio EAN (lookup cacheado → upload Cloudinary), nunca de
+  // dado do cliente. Fora da transação para não segurar conexão do pooler
+  // durante I/O externo; best-effort — qualquer falha vira produto sem foto.
+  private async resolveProductImage(ean: string): Promise<string | null> {
+    if (!this.cloudinary.isEnabled()) return null;
+    // EAN já cadastrado vai dar 409 de qualquer forma — não gasta upload.
+    if ((await this.existsByEan(ean)).exists) return null;
+    const suggestion = await this.openFoodFacts.lookup(ean);
+    if (!suggestion.imageUrl) return null;
+    return this.cloudinary.uploadProductImage(ean, suggestion.imageUrl);
   }
 }

@@ -86,6 +86,13 @@ export class ProductDetailDto {
   @ApiProperty({ enum: CATEGORY_CODES, example: 'merc' })
   category!: CategoryCode;
 
+  @ApiPropertyOptional({
+    example:
+      'https://res.cloudinary.com/demo/image/upload/v1/poupe-certo/products/7891234567890.jpg',
+    nullable: true,
+  })
+  imageUrl!: string | null;
+
   @ApiProperty({ type: OfferDetailDto, isArray: true })
   offers!: OfferDetailDto[];
 
@@ -134,14 +141,37 @@ export class CreateProductDto {
   @ApiProperty({ enum: CATEGORY_CODES, example: 'merc' })
   category!: CategoryCode;
 
-  @ApiPropertyOptional({ example: null, nullable: true })
-  imageUrl?: string;
-
   @ApiProperty({ format: 'uuid' })
   marketId!: string;
 
   @ApiProperty({ example: 5.99 })
   price!: number;
+}
+
+export class EanLookupDto {
+  @ApiProperty()
+  found!: boolean;
+
+  @ApiPropertyOptional({
+    example: 'Leite Condensado Integral Moça',
+    nullable: true,
+  })
+  name!: string | null;
+
+  @ApiPropertyOptional({ example: 'Nestlé', nullable: true })
+  brand!: string | null;
+
+  @ApiPropertyOptional({ example: '395 g', nullable: true })
+  qty!: string | null;
+
+  @ApiPropertyOptional({ enum: CATEGORY_CODES, nullable: true })
+  category!: CategoryCode | null;
+
+  @ApiPropertyOptional({
+    description: 'Foto de origem (Open Food Facts), só para prévia',
+    nullable: true,
+  })
+  imageUrl!: string | null;
 }
 
 export class CreateProductResponseDto {
